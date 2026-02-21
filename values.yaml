@@ -1,0 +1,56 @@
+dags:
+  gitSync:
+    enabled: true
+    repo: "https://github.com/Kh-1976/airflow-dags.git"
+    branch: "main"
+    rev: "HEAD"
+    depth: 1
+    period: "1m"
+    subPath: ""  # Синхронизирует корень репозитория (если даги в корне). Если по умолчанию /repo, это может помочь; иначе см. config ниже
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  
+  postgresUser: airflow
+  postgresPassword: airflow
+  postgresDatabase: airflow
+  
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    accessMode: ReadWriteOnce
+    size: 8Gi
+  
+  service:
+    port: 5432
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m" 
+
+airflow:
+  migrateDatabaseJob:
+    enabled: true
+  createUserJob:
+    enabled: true
+  config:
+    CORE__DAGS_FOLDER: '/opt/airflow/dags/repo'  # Ключевой фикс: указываем Airflow сканировать именно туда, куда git-sync кладёт даги (на основе вашего описания)
+    # Альтернатива, если после subPath: "" станет /opt/airflow/dags/git или /opt/airflow/dags:
+    # CORE__DAGS_FOLDER: '/opt/airflow/dags/git'
+    # или
+    # CORE__DAGS_FOLDER: '/opt/airflow/dags'
