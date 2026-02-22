@@ -5,21 +5,21 @@ from datetime import datetime
 
 def write_to_minio():
     # Используем S3Hook с ID вашего нового соединения
-    hook = S3Hook(aws_conn_id='minio_s3')
+    hook = S3Hook(aws_conn_id='minio_id')
     # Создаем простой текст для загрузки
     content = 'Hello from Airflow in Minikube!'
     # Загружаем строку как файл 'hello.txt' в бакет 'airflow-bucket'
     hook.load_string(
         string_data=content,
         key='hello.txt',
-        bucket_name='airflow-bucket',
+        bucket_name='test-bucket-for-airflow',
         replace=True
     )
     print("Файл успешно загружен!")
 
 with DAG(
     dag_id='test_minio_connection',
-    start_date=datetime(2024, 1, 1),
+    start_date=datetime(2026, 2, 22),
     schedule=None,
     catchup=False
 ) as dag:
