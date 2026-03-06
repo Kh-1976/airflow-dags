@@ -18,7 +18,7 @@ def write_to_minio():
     print("Файл успешно загружен!")
 
 with DAG(
-    dag_id='test_minio_connection',
+    dag_id='kafka_to_minio',
     start_date=datetime(2026, 2, 22),
     schedule=None,
     catchup=False
