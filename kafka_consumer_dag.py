@@ -43,7 +43,7 @@ def create_consumer(topic: str) -> Consumer:
     
     return Consumer(config)
 
-def consume_messages_confluent(topic_name: str, max_messages: int = 100, **context) -> int:
+def consume_messages_confluent(topic_name: str, max_messages: int = 100, ti=None, **context) -> int:
     """
     Чтение сообщений из Kafka топика с использованием confluent_kafka
     """
@@ -114,20 +114,22 @@ def consume_messages_confluent(topic_name: str, max_messages: int = 100, **conte
         
         logger.info(f"Получено {message_count} сообщений из топика {topic_name}")
         
-        # Сохранение в XCom
-        context['task_instance'].xcom_push(
-            key=f'messages_{topic_name}',
-            value=messages_collected
-        )
+        # Сохранение в XCom используя ti (task_instance)
+        if ti:
+            ti.xcom_push(
+                key=f'messages_{topic_name}',
+                value=messages_collected
+            )
         
         # Сохранение в файл
         save_messages_to_file(topic_name, messages_collected)
         
         # Сохранение статистики
-        context['task_instance'].xcom_push(
-            key=f'stats_{topic_name}',
-            value={'count': message_count, 'last_offset': msg.offset() if message_count > 0 else -1}
-        )
+        if ti:
+            ti.xcom_push(
+                key=f'stats_{topic_name}',
+                value={'count': message_count, 'last_offset': msg.offset() if message_count > 0 else -1}
+            )
         
         return message_count
         
@@ -176,7 +178,7 @@ def save_messages_to_file(topic_name: str, messages: List[Dict]):
     except Exception as e:
         logger.error(f"Ошибка при сохранении в файл: {str(e)}")
 
-def process_all_topics(**context):
+def process_all_topics(ti=None, **context):
     """
     Обработка и агрегация данных из всех топиков
     """
@@ -185,27 +187,28 @@ def process_all_topics(**context):
     
     for topic in TOPICS:
         # Получение статистики из XCom
-        stats = context['task_instance'].xcom_pull(
-            key=f'stats_{topic}',
-            task_ids=f'consume_{topic.replace("-", "_")}'
-        )
-        
-        if stats:
-            all_stats[topic] = stats
-            total_messages += stats.get('count', 0)
+        if ti:
+            stats = ti.xcom_pull(
+                key=f'stats_{topic}',
+                task_ids=f'consume_{topic.replace("-", "_")}'
+            )
             
-        # Получение сообщений для дополнительной обработки
-        messages = context['task_instance'].xcom_pull(
-            key=f'messages_{topic}',
-            task_ids=f'consume_{topic.replace("-", "_")}'
-        )
-        
-        if messages:
-            # Пример анализа сообщений по уровню
-            if topic == 'logs-error':
-                analyze_error_patterns(messages)
-            elif topic == 'logs-critical':
-                trigger_alerts_for_critical(messages)
+            if stats:
+                all_stats[topic] = stats
+                total_messages += stats.get('count', 0)
+                
+            # Получение сообщений для дополнительной обработки
+            messages = ti.xcom_pull(
+                key=f'messages_{topic}',
+                task_ids=f'consume_{topic.replace("-", "_")}'
+            )
+            
+            if messages:
+                # Пример анализа сообщений по уровню
+                if topic == 'logs-error':
+                    analyze_error_patterns(messages)
+                elif topic == 'logs-critical':
+                    trigger_alerts_for_critical(messages)
     
     # Создание отчета
     report = {
@@ -220,7 +223,8 @@ def process_all_topics(**context):
     logger.info(f"Агрегация завершена. Всего сообщений: {total_messages}")
     logger.info(f"Статистика: {json.dumps(all_stats, indent=2)}")
     
-    context['task_instance'].xcom_push(key='final_report', value=report)
+    if ti:
+        ti.xcom_push(key='final_report', value=report)
     
     return total_messages
 
@@ -264,7 +268,7 @@ def save_report(report: Dict):
     
     logger.info(f"Отчет сохранен в {filename}")
 
-def check_kafka_connection(**context):
+def check_kafka_connection(ti=None, **context):
     """
     Проверка подключения к Kafka перед основными задачами
     """
@@ -290,7 +294,8 @@ def check_kafka_connection(**context):
         
         consumer.close()
         
-        context['task_instance'].xcom_push(key='available_topics', value=list(available_topics))
+        if ti:
+            ti.xcom_push(key='available_topics', value=list(available_topics))
         
         return len(available_topics)
         
@@ -324,7 +329,7 @@ with DAG(
     check_connection = PythonOperator(
         task_id='check_kafka_connection',
         python_callable=check_kafka_connection,
-        provide_context=True,
+        # Убрали provide_context=True и передаем контекст через op_kwargs если нужно
     )
     
     # Создаем задачи для каждого топика
@@ -338,7 +343,6 @@ with DAG(
                 'topic_name': topic,
                 'max_messages': 200  # Максимум сообщений за запуск
             },
-            provide_context=True,
             retries=1,
             retry_delay=timedelta(minutes=1),
         )
@@ -348,7 +352,6 @@ with DAG(
     process_all = PythonOperator(
         task_id='process_all_topics',
         python_callable=process_all_topics,
-        provide_context=True,
         trigger_rule='all_done',  # Запускаем даже если некоторые задачи завершились с ошибкой
     )
     
