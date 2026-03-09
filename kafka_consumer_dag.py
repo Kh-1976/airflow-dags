@@ -314,7 +314,7 @@ with DAG(
     'kafka_logs_consumer_confluent',
     default_args=default_args,
     description='Consume log messages from Kafka topics using confluent_kafka',
-    schedule_interval='*/5 * * * *',  # Каждые 5 минут
+    schedule='*/5 * * * *',  # Каждые 5 минут
     catchup=False,
     tags=['kafka', 'logs', 'confluent'],
     max_active_runs=1,
