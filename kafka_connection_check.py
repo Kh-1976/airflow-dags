@@ -19,6 +19,7 @@ def check_kafka_connection():
         metadata = consumer.list_topics(timeout=10)
         topics = list(metadata.topics.keys())
         logger.info(f"Kafka доступен. Топиков: {len(topics)}")
+        logger.info(f"Список топиков: {topics}")
         return True
     finally:
         consumer.close()
