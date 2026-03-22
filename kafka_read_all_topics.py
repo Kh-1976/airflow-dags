@@ -132,8 +132,9 @@ def kafka_connection_check():
     
     consumer = create_consumer()
     topics = check_kafka_connection(consumer)
-    '''
+    
     read_all_messages(consumer, topics)
 
 # Создание экземпляра DAG
 kafka_connection_check_dag = kafka_connection_check()
+'''
