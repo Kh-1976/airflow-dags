@@ -13,8 +13,8 @@ DB_PARAMS = {
     "dbname": "work_db",
     "user": "airflow",
     "password": "airflow",
-    "host": "localhost", # Проверьте доступность изнутри пода!
-    "port": "5432"
+    #"host": "localhost", # Проверьте доступность изнутри пода!
+    #"port": "5432"
 }
 
 @dag(
