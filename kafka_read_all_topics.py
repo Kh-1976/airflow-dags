@@ -1,4 +1,4 @@
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 from datetime import datetime
 from confluent_kafka import Consumer, KafkaError
 import logging
