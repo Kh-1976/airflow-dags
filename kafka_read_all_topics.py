@@ -70,7 +70,7 @@ def kafka_dag():
                 logger.info(f"ПОЛУЧЕНО из [{topic}]: {payload[:100]}...")
                 
                 # Ограничим выборку для теста
-                if len(messages) >= 5000:
+                if len(messages) >= 10:
                     break
             
             result_str = f"Прочитано сообщений: {len(messages)}"
