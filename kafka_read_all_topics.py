@@ -12,7 +12,7 @@ KAFKA_BOOTSTRAP_SERVERS = 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.lo
 @dag(
     dag_id='kafka_read_all_topics',
     schedule='*/5 * * * *',
-    start_date=datetime(2025, 1, 1),
+    start_date=datetime(2026, 3, 17),
     catchup=False,
     tags=['kafka'],
 )
@@ -70,7 +70,7 @@ def kafka_dag():
                 logger.info(f"ПОЛУЧЕНО из [{topic}]: {payload[:100]}...")
                 
                 # Ограничим выборку для теста
-                if len(messages) >= 10:
+                if len(messages) >= 5000:
                     break
             
             result_str = f"Прочитано сообщений: {len(messages)}"
