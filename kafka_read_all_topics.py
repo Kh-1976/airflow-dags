@@ -1,3 +1,59 @@
+from airflow.decorators import dag, task
+from datetime import datetime
+from confluent_kafka import Consumer, KafkaError
+import logging
+
+logger = logging.getLogger(__name__)
+
+KAFKA_CONFIG = {
+    'bootstrap.servers': 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092',
+    'group.id': 'airflow-connection-test',
+    'auto.offset.reset': 'earliest', # Чтобы прочитать сообщения с начала, если их нет в буфере
+    'session.timeout.ms': 10000,
+}
+
+@dag(
+    dag_id='kafka_connection_check_fixed',
+    schedule='*/5 * * * *',
+    start_date=datetime(2025, 1, 1), # Убедись, что дата в прошлом
+    catchup=False,
+    tags=['kafka'],
+)
+def kafka_dag():
+
+    @task
+    def check_and_read():
+        # Создаем консьюмера прямо внутри задачи
+        consumer = Consumer(KAFKA_CONFIG)
+        
+        try:
+            # 1. Проверка соединения
+            metadata = consumer.list_topics(timeout=10)
+            topics = list(metadata.topics.keys())
+            logger.info(f"Kafka доступен. Топики: {topics}")
+
+            # 2. Чтение сообщений (например, из конкретного топика или всех)
+            consumer.subscribe(topics)
+            messages = []
+            
+            # Читаем в течение короткого времени, чтобы не вешать DAG
+            for _ in range(10): 
+                msg = consumer.poll(timeout=1.0)
+                if msg is None: break
+                if msg.error(): continue
+                
+                messages.append(msg.value().decode('utf-8'))
+            
+            return f"Прочитано сообщений: {len(messages)}"
+            
+        finally:
+            consumer.close()
+
+    check_and_read()
+
+kafka_connection_check_dag = kafka_dag()
+
+'''
 from airflow.sdk import dag, task
 from datetime import datetime
 from confluent_kafka import Consumer, KafkaError
@@ -76,6 +132,7 @@ def kafka_connection_check():
     
     consumer = create_consumer()
     topics = check_kafka_connection(consumer)
+    '''
     read_all_messages(consumer, topics)
 
 # Создание экземпляра DAG
