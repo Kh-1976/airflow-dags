@@ -13,7 +13,8 @@ KAFKA_BOOTSTRAP_SERVERS = 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.lo
 default_args = {
     'owner': 'airflow',
     'retries': 1,
-    'retry_delay': timedelta(minutes=1),}
+    'retry_delay': timedelta(minutes=1),
+}
 
 @dag(
     dag_id='kafka_to_postgres_stream',
@@ -21,13 +22,14 @@ default_args = {
     schedule='*/5 * * * *',
     start_date=datetime(2026, 3, 17),
     catchup=False,
-    tags=['kafka', 'postgres'],)
+    tags=['kafka', 'postgres'],
+)
 def kafka_dag():
     @task
     def consume_to_db():
         conf = {
             'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
-            'group.id': 'airflow-persistent-consumer', # Оставим один ID, чтобы не дублировать данные
+            'group.id': 'airflow-persistent-consumer',
             'auto.offset.reset': 'earliest',
         }
         
@@ -40,20 +42,18 @@ def kafka_dag():
             
             logger.info(f"Начинаем сбор из: {target_topics}")
 
-            # Бесконечный цикл чтения
             empty_count = 0
             while True:
                 msg = consumer.poll(timeout=1.0)
                 
                 if msg is None:
                     empty_count += 1
-                    # Если 30 секунд нет сообщений, завершаем задачу (Airflow запустит её снова по расписанию)
-                    if empty_count > 30: 
+                    if empty_count > 30:
                         logger.info("Новых сообщений нет, завершаю цикл.")
                         break
                     continue
                 
-                empty_count = 0 # Сбрасываем счетчик, если что-то пришло
+                empty_count = 0
 
                 if msg.error():
                     logger.error(f"Ошибка Kafka: {msg.error()}")
@@ -62,22 +62,33 @@ def kafka_dag():
                 try:
                     # Парсим JSON
                     data = json.loads(msg.value().decode('utf-8'))
-                    logger.info(f"Данные в data выглядят так: {data}")
-
-                    #Перконвертируем data в tuple, оставив только values
-                    data = tuple(map(lambda x: x[1], data.items()))
+                    
+                    # Преобразуем timestamp из формата "YYYY-MM-DD HH:MM:SS,mmm" в "YYYY-MM-DD HH:MM:SS.mmm"
+                    timestamp_str = data['timestamp']
+                    # Заменяем запятую на точку в миллисекундах
+                    timestamp_str = timestamp_str.replace(',', '.')
+                    
+                    # Создаем кортеж для вставки
+                    values = (
+                        timestamp_str,  # Преобразованный timestamp
+                        data.get('level'),
+                        data.get('service'),
+                        data.get('message'),
+                        data.get('host'),
+                        data.get('pid')
+                    )
+                    
                     # Вставка в PostgreSQL
                     hook = PostgresHook(postgres_conn_id='postgres_kafka_all_topics')
                     insert_query = """
                     INSERT INTO kafka_all_topics (log_timestamp, log_level, service_name, message, host_name, pid)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """
-                    hook.run(insert_query, parameters=data)
+                    hook.run(insert_query, parameters=values)
                     logger.info(f"Записан лог из {msg.topic()}")
 
                 except Exception as parse_err:
                     logger.error(f"Ошибка парсинга или записи: {parse_err}")
-                    #conn.rollback()
 
         finally:
             consumer.close()
