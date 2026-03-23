@@ -29,7 +29,8 @@ def kafka_dag():
             'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
             'group.id': 'airflow-persistent-consumer', # Оставим один ID, чтобы не дублировать данные
             'auto.offset.reset': 'earliest',
-        }   
+        }
+        
         consumer = Consumer(conf)
 
         try:
@@ -38,9 +39,46 @@ def kafka_dag():
             consumer.subscribe(target_topics)
             
             logger.info(f"Начинаем сбор из: {target_topics}")
-            msg = consumer.poll(timeout=1.0)
-            data = json.loads(msg.value().decode('utf-8'))
-            logger.info(f"Данные в data выглядят так: {data}")
+
+            # Бесконечный цикл чтения
+            empty_count = 0
+            while True:
+                msg = consumer.poll(timeout=1.0)
+                
+                if msg is None:
+                    empty_count += 1
+                    # Если 30 секунд нет сообщений, завершаем задачу (Airflow запустит её снова по расписанию)
+                    if empty_count > 30: 
+                        logger.info("Новых сообщений нет, завершаю цикл.")
+                        break
+                    continue
+                
+                empty_count = 0 # Сбрасываем счетчик, если что-то пришло
+
+                if msg.error():
+                    logger.error(f"Ошибка Kafka: {msg.error()}")
+                    continue
+
+                try:
+                    # Парсим JSON
+                    data = json.loads(msg.value().decode('utf-8'))
+                    logger.info(f"Данные в data выглядят так: {data}")
+
+                    #Перконвертируем data в tuple, оставив только values
+                    data = tuple(map(lambda x: x[1], data.items()))
+                    # Вставка в PostgreSQL
+                    hook = PostgresHook(postgres_conn_id='postgres_kafka_all_topics')
+                    insert_query = """
+                    INSERT INTO kafka_all_topics (log_timestamp, log_level, service_name, message, host_name, pid)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    hook.run(insert_query, parameters=data)
+                    logger.info(f"Записан лог из {msg.topic()}")
+
+                except Exception as parse_err:
+                    logger.error(f"Ошибка парсинга или записи: {parse_err}")
+                    #conn.rollback()
+
         finally:
             consumer.close()
 
