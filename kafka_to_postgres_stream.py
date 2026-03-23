@@ -77,7 +77,7 @@ def kafka_dag():
 
                 except Exception as parse_err:
                     logger.error(f"Ошибка парсинга или записи: {parse_err}")
-                    conn.rollback()
+                    #conn.rollback()
 
         finally:
             consumer.close()
