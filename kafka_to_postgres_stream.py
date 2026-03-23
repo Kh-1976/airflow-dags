@@ -1,4 +1,4 @@
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 from datetime import datetime, timedelta
 from confluent_kafka import Consumer, KafkaError
 from airflow.providers.postgres.hooks.postgres import PostgresHook
