@@ -72,7 +72,7 @@ def kafka_dag():
                     INSERT INTO kafka_all_topics (log_timestamp, log_level, service_name, message, host_name, pid)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """
-                    hook.run(sql, parameters=data)
+                    hook.run(insert_query, parameters=data)
                     logger.info(f"Записан лог из {msg.topic()}")
 
                 except Exception as parse_err:
