@@ -16,6 +16,7 @@ KAFKA_BOOTSTRAP_SERVERS = 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.lo
     #"host": "localhost", # Проверьте доступность изнутри пода!
     #"port": "5432"}
 
+
 @dag(
     dag_id='kafka_to_postgres_stream',
     schedule='*/5 * * * *',
