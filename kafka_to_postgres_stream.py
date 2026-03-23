@@ -9,10 +9,10 @@ import psycopg2
 logger = logging.getLogger(__name__)
 
 KAFKA_BOOTSTRAP_SERVERS = 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092'
-DB_PARAMS = {
-    "dbname": "work_db",
-    "user": "airflow",
-    "password": "airflow",
+#DB_PARAMS = {
+    #"dbname": "work_db",
+    #"user": "airflow",
+    #"password": "airflow",
     #"host": "localhost", # Проверьте доступность изнутри пода!
     #"port": "5432"
 }
@@ -36,8 +36,8 @@ def kafka_dag():
         
         consumer = Consumer(conf)
         # Подключаемся к БД
-        conn = psycopg2.connect(**DB_PARAMS)
-        cursor = conn.cursor()
+        #conn = psycopg2.connect(**DB_PARAMS)
+        #cursor = conn.cursor()
 
         try:
             metadata = consumer.list_topics(timeout=10)
@@ -68,21 +68,21 @@ def kafka_dag():
                 try:
                     # Парсим JSON
                     data = json.loads(msg.value().decode('utf-8'))
+                    logger.info(f"Данные в data выглядят так: {data}")
                     
                     # Вставка в PostgreSQL
-                    insert_query = """
-                    INSERT INTO app_logs (log_timestamp, log_level, service_name, message, host_name, pid)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """
-                    cursor.execute(insert_query, (
-                        data.get('timestamp'),
-                        data.get('level'),
-                        data.get('service'),
-                        data.get('message'),
-                        data.get('host'),
-                        data.get('pid')
-                    ))
-                    conn.commit()
+                    #insert_query = """
+                    #INSERT INTO app_logs (log_timestamp, log_level, service_name, message, host_name, pid)
+                    #VALUES (%s, %s, %s, %s, %s, %s)
+                    #"""
+                    #cursor.execute(insert_query, (
+                        #data.get('timestamp'),
+                        #data.get('level'),
+                        #data.get('service'),
+                        #data.get('message'),
+                        #data.get('host'),
+                        #data.get('pid')))
+                    #conn.commit()
                     logger.info(f"Записан лог из {msg.topic()}")
 
                 except Exception as parse_err:
@@ -90,8 +90,8 @@ def kafka_dag():
                     conn.rollback()
 
         finally:
-            cursor.close()
-            conn.close()
+            #cursor.close()
+            #conn.close()
             consumer.close()
 
     consume_to_db()
