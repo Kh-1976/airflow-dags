@@ -38,6 +38,7 @@ def kafka_dag():
             consumer.subscribe(target_topics)
             
             logger.info(f"Начинаем сбор из: {target_topics}")
+            msg = consumer.poll(timeout=1.0)
             data = json.loads(msg.value().decode('utf-8'))
             logger.info(f"Данные в data выглядят так: {data}")
         finally:
