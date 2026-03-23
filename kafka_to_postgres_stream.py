@@ -14,8 +14,7 @@ KAFKA_BOOTSTRAP_SERVERS = 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.lo
     #"user": "airflow",
     #"password": "airflow",
     #"host": "localhost", # Проверьте доступность изнутри пода!
-    #"port": "5432"
-}
+    #"port": "5432"}
 
 @dag(
     dag_id='kafka_to_postgres_stream',
