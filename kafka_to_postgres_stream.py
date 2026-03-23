@@ -1,6 +1,7 @@
 from airflow.sdk import dag, task
 from datetime import datetime
 from confluent_kafka import Consumer, KafkaError
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 import uuid
 import json
@@ -9,23 +10,19 @@ import psycopg2
 logger = logging.getLogger(__name__)
 
 KAFKA_BOOTSTRAP_SERVERS = 'my-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092'
-#DB_PARAMS = {
-    #"dbname": "work_db",
-    #"user": "airflow",
-    #"password": "airflow",
-    #"host": "localhost", # Проверьте доступность изнутри пода!
-    #"port": "5432"}
-
+default_args = {
+    'owner': 'airflow',
+    'retries': 1,
+    'retry_delay': timedelta(minutes=1),}
 
 @dag(
     dag_id='kafka_to_postgres_stream',
+    default_args=default_args,
     schedule='*/5 * * * *',
     start_date=datetime(2026, 3, 17),
     catchup=False,
-    tags=['kafka', 'postgres'],
-)
+    tags=['kafka', 'postgres'],)
 def kafka_dag():
-
     @task
     def consume_to_db():
         conf = {
@@ -35,9 +32,6 @@ def kafka_dag():
         }
         
         consumer = Consumer(conf)
-        # Подключаемся к БД
-        #conn = psycopg2.connect(**DB_PARAMS)
-        #cursor = conn.cursor()
 
         try:
             metadata = consumer.list_topics(timeout=10)
@@ -68,21 +62,17 @@ def kafka_dag():
                 try:
                     # Парсим JSON
                     data = json.loads(msg.value().decode('utf-8'))
-                    logger.info(f"Данные в data выглядят так: {data}")
-                    
+                    #logger.info(f"Данные в data выглядят так: {data}")
+
+                    #Перконвертируем data в tuple, оставив только values
+                    data = tuple(map(lambda x: x[1], data.items()))
                     # Вставка в PostgreSQL
-                    #insert_query = """
-                    #INSERT INTO app_logs (log_timestamp, log_level, service_name, message, host_name, pid)
-                    #VALUES (%s, %s, %s, %s, %s, %s)
-                    #"""
-                    #cursor.execute(insert_query, (
-                        #data.get('timestamp'),
-                        #data.get('level'),
-                        #data.get('service'),
-                        #data.get('message'),
-                        #data.get('host'),
-                        #data.get('pid')))
-                    #conn.commit()
+                    hook = PostgresHook(postgres_conn_id='postgres_kafka_all_topics')
+                    insert_query = """
+                    INSERT INTO kafka_all_topics (log_timestamp, log_level, service_name, message, host_name, pid)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    hook.run(sql, parameters=data)
                     logger.info(f"Записан лог из {msg.topic()}")
 
                 except Exception as parse_err:
@@ -90,8 +80,6 @@ def kafka_dag():
                     conn.rollback()
 
         finally:
-            #cursor.close()
-            #conn.close()
             consumer.close()
 
     consume_to_db()
