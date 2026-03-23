@@ -62,7 +62,7 @@ def kafka_dag():
                 try:
                     # Парсим JSON
                     data = json.loads(msg.value().decode('utf-8'))
-                    #logger.info(f"Данные в data выглядят так: {data}")
+                    logger.info(f"Данные в data выглядят так: {data}")
 
                     #Перконвертируем data в tuple, оставив только values
                     data = tuple(map(lambda x: x[1], data.items()))
