@@ -18,7 +18,7 @@ default_args = {
 @dag(
     dag_id='kafka_to_postgres',
     default_args=default_args,
-    schedule='@hourly',  # Запуск каждый час
+    schedule='*/10 * * * *',   #'@hourly' Запуск каждый час. '*/10 * * * *' каждые 10 минут 
     start_date=datetime(2026, 3, 17),
     catchup=False,
     tags=['kafka', 'postgres'],
